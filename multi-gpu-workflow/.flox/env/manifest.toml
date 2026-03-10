@@ -1,5 +1,4 @@
-# Flox manifest version managed by Flox CLI
-version = 1
+schema-version = "1.10.0"
 
 # --- Packages ---------------------------------------------------------------
 # Level 1: Declarative packages — identical on every x86_64-linux machine.
@@ -8,17 +7,22 @@ version = 1
 [install]
 python3.pkg-path = "python3"
 python3.version = "^3.12"
+python3.outputs = "all"
 
 uv.pkg-path = "uv"
+uv.outputs = "all"
 
 pciutils.pkg-path = "pciutils"
+pciutils.outputs = "all"
 
-cudatoolkit.pkg-path = "cudatoolkit"
+cudatoolkit.pkg-path = "flox-cuda/cudaPackages.cudatoolkit"
 cudatoolkit.version = "^12.8"
 cudatoolkit.systems = ["x86_64-linux"]
 cudatoolkit.priority = 5
+cudatoolkit.outputs = "all"
 gcc-unwrapped.pkg-path = "gcc-unwrapped"
 gcc-unwrapped.systems = ["x86_64-linux"]
+gcc-unwrapped.outputs = "all"
 
 # --- Hook --------------------------------------------------------------------
 # on-activate runs in bash during `flox activate`.  Three phases:

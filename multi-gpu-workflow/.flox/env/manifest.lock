@@ -1,0 +1,221 @@
+{
+  "lockfile-version": 1,
+  "manifest": {
+    "schema-version": "1.10.0",
+    "install": {
+      "cudatoolkit": {
+        "pkg-path": "flox-cuda/cudaPackages.cudatoolkit",
+        "priority": 5,
+        "version": "^12.8",
+        "systems": [
+          "x86_64-linux"
+        ],
+        "outputs": "all"
+      },
+      "gcc-unwrapped": {
+        "pkg-path": "gcc-unwrapped",
+        "systems": [
+          "x86_64-linux"
+        ],
+        "outputs": "all"
+      },
+      "pciutils": {
+        "pkg-path": "pciutils",
+        "outputs": "all"
+      },
+      "python3": {
+        "pkg-path": "python3",
+        "version": "^3.12",
+        "outputs": "all"
+      },
+      "uv": {
+        "pkg-path": "uv",
+        "outputs": "all"
+      }
+    },
+    "hook": {
+      "on-activate": "  set -euo pipefail\n\n  VENV_DIR=\"${FLOX_ENV_CACHE}/venv\"\n  MARKER_FILE=\"${VENV_DIR}/.torch-variant\"\n  REQUIRED_CUDA=\"12.8\"\n\n  # ---------- Helper: version comparison ----------\n  # Returns 0 (true) if $1 >= $2 comparing major.minor\n  version_ge() {\n    local v1_major v1_minor v2_major v2_minor\n    IFS='.' read -r v1_major v1_minor <<< \"$1\"\n    IFS='.' read -r v2_major v2_minor <<< \"$2\"\n    (( v1_major > v2_major )) && return 0\n    (( v1_major == v2_major && v1_minor >= v2_minor )) && return 0\n    return 1\n  }\n\n  # ---------- Phase 1: GPU detection ----------\n  TORCH_VARIANT=\"cpu\"\n  TORCH_INDEX=\"https://download.pytorch.org/whl/cpu\"\n  GPU_STATUS=\"none\"\n\n  if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then\n    GPU_STATUS=\"nvidia-smi\"\n  elif command -v lspci &>/dev/null && lspci | grep -qi nvidia; then\n    GPU_STATUS=\"lspci-only\"\n  fi\n\n  # ---------- Phase 2: Driver compatibility validation ----------\n  if [[ \"$GPU_STATUS\" == \"nvidia-smi\" ]]; then\n    DRIVER_VERSION=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)\n    DRIVER_MAX_CUDA=$(nvidia-smi 2>/dev/null | grep -oP 'CUDA Version:\\s+\\K[0-9]+\\.[0-9]+' || echo \"\")\n\n    # Check what nvcc reports (from Flox-provided cudatoolkit)\n    NVCC_VERSION=\"\"\n    if command -v nvcc &>/dev/null; then\n      NVCC_VERSION=$(nvcc --version 2>/dev/null | grep -oP 'release \\K[0-9]+\\.[0-9]+' || echo \"\")\n    fi\n\n    echo \"------------------------------------------------------------\"\n    echo \"  CUDA Compatibility Check\"\n    echo \"------------------------------------------------------------\"\n    echo \"  Driver version     : ${DRIVER_VERSION:-unknown}\"\n    echo \"  Driver max CUDA    : ${DRIVER_MAX_CUDA:-unknown}\"\n    echo \"  Toolkit (manifest) : cudatoolkit ^${REQUIRED_CUDA}\"\n    echo \"  nvcc reports       : ${NVCC_VERSION:-not found}\"\n    echo \"  PyTorch target     : cu${REQUIRED_CUDA//./}\"\n    echo \"------------------------------------------------------------\"\n\n    if [[ -z \"$DRIVER_MAX_CUDA\" ]]; then\n      echo \"  WARNING: Could not parse driver CUDA version.\"\n      echo \"  Proceeding with CUDA wheels -- may fail at runtime.\"\n      echo \"------------------------------------------------------------\"\n      TORCH_VARIANT=\"cu128\"\n      TORCH_INDEX=\"https://download.pytorch.org/whl/cu128\"\n\n    elif version_ge \"$DRIVER_MAX_CUDA\" \"$REQUIRED_CUDA\"; then\n      echo \"  Status: COMPATIBLE (driver supports CUDA ${DRIVER_MAX_CUDA} >= ${REQUIRED_CUDA})\"\n      echo \"------------------------------------------------------------\"\n      TORCH_VARIANT=\"cu128\"\n      TORCH_INDEX=\"https://download.pytorch.org/whl/cu128\"\n\n    else\n      echo \"  Status: INCOMPATIBLE\"\n      echo \"\"\n      echo \"  Driver supports up to CUDA ${DRIVER_MAX_CUDA},\"\n      echo \"  but this environment needs CUDA ${REQUIRED_CUDA}.\"\n      echo \"\"\n      echo \"  Options:\"\n      echo \"    1. Upgrade NVIDIA driver (recommended)\"\n      echo \"    2. Lower cudatoolkit version in manifest.toml\"\n      echo \"\"\n      echo \"  Falling back to CPU-only PyTorch wheels.\"\n      echo \"------------------------------------------------------------\"\n      # Stay on cpu variant -- don't install CUDA wheels that will break\n    fi\n\n  elif [[ \"$GPU_STATUS\" == \"lspci-only\" ]]; then\n    echo \"------------------------------------------------------------\"\n    echo \"  GPU Hardware Detected -- Driver Not Responding\"\n    echo \"------------------------------------------------------------\"\n    echo \"  lspci sees NVIDIA hardware, but nvidia-smi failed.\"\n    echo \"  The driver may not be installed or loaded.\"\n    echo \"\"\n    echo \"  CUDA wheels require a working driver.\"\n    echo \"  Falling back to CPU-only PyTorch wheels.\"\n    echo \"------------------------------------------------------------\"\n    # Stay on cpu variant -- CUDA won't work without a driver\n\n  else\n    echo \"No NVIDIA GPU detected -> using CPU-only wheels\"\n  fi\n\n  # ---------- Phase 3: Idempotent install ----------\n  if [ -f \"$MARKER_FILE\" ] && [ \"$(cat \"$MARKER_FILE\")\" = \"$TORCH_VARIANT\" ]; then\n    echo \"PyTorch ($TORCH_VARIANT) already installed -- skipping\"\n  else\n    echo \"Installing PyTorch ($TORCH_VARIANT) ...\"\n\n    # (Re)create venv if variant changed or first run\n    if [ -d \"$VENV_DIR\" ]; then\n      rm -rf \"$VENV_DIR\"\n    fi\n    uv venv \"$VENV_DIR\" --python python3\n\n    # Step 1: PyTorch from the variant-specific index\n    uv pip install --python \"$VENV_DIR/bin/python\" torch torchvision torchaudio --index-url \"$TORCH_INDEX\"\n\n    # Step 2: ML libraries from standard PyPI\n    uv pip install --python \"$VENV_DIR/bin/python\" transformers accelerate\n\n    echo \"$TORCH_VARIANT\" > \"$MARKER_FILE\"\n    echo \"PyTorch ($TORCH_VARIANT) installed successfully\"\n  fi\n\n  # ---------- Library path for PyTorch ----------\n  # gcc-unwrapped provides libstdc++.so in $FLOX_ENV/lib; PyTorch needs it at runtime.\n  export LD_LIBRARY_PATH=\"${FLOX_ENV}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\"\n\n  # ---------- Activate the venv ----------\n  export VIRTUAL_ENV=\"$VENV_DIR\"\n  export PATH=\"${VENV_DIR}/bin:${PATH}\"\n"
+    },
+    "profile": {
+      "common": "  # Library path for PyTorch (libstdc++ from gcc-unwrapped)\n  export LD_LIBRARY_PATH=\"${FLOX_ENV}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\"\n\n  # Flox overrides both PATH and PYTHONPATH after the profile runs, so the\n  # Flox-provided python3 always wins and venv site-packages are not visible.\n  # Shell functions override PATH lookups, so we use them to ensure the venv\n  # python is used for all interactive commands.\n  export VIRTUAL_ENV=\"${FLOX_ENV_CACHE}/venv\"\n  python3() { \"${FLOX_ENV_CACHE}/venv/bin/python3\" \"$@\"; }\n  python()  { \"${FLOX_ENV_CACHE}/venv/bin/python\"  \"$@\"; }\n  export -f python3 python\n\n  # Quick GPU status helper\n  gpu-info() {\n    python3 -c \"\nimport torch, sys\nprint(f'PyTorch {torch.__version__}')\nprint(f'CUDA available: {torch.cuda.is_available()}')\nif torch.cuda.is_available():\n    for i in range(torch.cuda.device_count()):\n        props = torch.cuda.get_device_properties(i)\n        print(f'  GPU {i}: {props.name}  ({props.total_mem // (1024**3)} GB)')\n        print(f'    Compute: {props.major}.{props.minor}')\nelse:\n    print('  Running in CPU-only mode')\n\"\n  }\n"
+    },
+    "options": {
+      "systems": [
+        "x86_64-linux"
+      ]
+    }
+  },
+  "packages": [
+    {
+      "attr_path": "cudaPackages.cudatoolkit",
+      "broken": false,
+      "derivation": "/nix/store/nr8rnkh53v01vav313rmbjxry5z21wvm-cuda-merged-12.8.drv",
+      "description": "Wrapper substituting the deprecated runfile-based CUDA installation",
+      "install_id": "cudatoolkit",
+      "license": "CUDA Toolkit End User License Agreement (EULA)",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=d6c71932130818840fc8fe9509cf50be8c64634f",
+      "name": "cuda-merged-12.8",
+      "pname": "cuda-merged",
+      "rev": "d6c71932130818840fc8fe9509cf50be8c64634f",
+      "rev_count": 942779,
+      "rev_date": "2026-02-08T14:52:16Z",
+      "scrape_date": "2026-03-10T19:54:37.267359919Z",
+      "stabilities": [
+        "unstable",
+        "staging"
+      ],
+      "unfree": true,
+      "version": "12.8",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ryjlw1d3fw8nqavqnj6a9ivm448k3qr9-cuda-merged-12.8"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "gcc-unwrapped",
+      "broken": false,
+      "derivation": "/nix/store/8m42cl41s6r5aybg9gsdnvxcmyadl5rs-gcc-15.2.0.drv",
+      "description": "GNU Compiler Collection, version 15.2.0",
+      "install_id": "gcc-unwrapped",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=d6c71932130818840fc8fe9509cf50be8c64634f",
+      "name": "gcc-15.2.0",
+      "pname": "gcc-unwrapped",
+      "rev": "d6c71932130818840fc8fe9509cf50be8c64634f",
+      "rev_count": 942779,
+      "rev_date": "2026-02-08T14:52:16Z",
+      "scrape_date": "2026-02-09T06:20:17.831656Z",
+      "stabilities": [
+        "unstable",
+        "staging"
+      ],
+      "unfree": false,
+      "version": "15.2.0",
+      "outputs_to_install": [
+        "man",
+        "man",
+        "out",
+        "out",
+        "out",
+        "out",
+        "out"
+      ],
+      "outputs": {
+        "checksum": "/nix/store/qn2x9g0j4l6w5cz2vqqhqa4d1i4ncd75-gcc-15.2.0-checksum",
+        "info": "/nix/store/frqv5xz9psh0n5kgbm7ypavp6rh32frh-gcc-15.2.0-info",
+        "lib": "/nix/store/j2kgllgds4w7na8zqv1msi0mpvpjxda8-gcc-15.2.0-lib",
+        "libgcc": "/nix/store/yjmjazfwljzajwq54xlr7vfz77spzr9y-gcc-15.2.0-libgcc",
+        "man": "/nix/store/9mxn5p4rcv229434nck8qzz573rz5a69-gcc-15.2.0-man",
+        "out": "/nix/store/mjf8jlq9grydcdvyw6hb063x5c34g5gf-gcc-15.2.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pciutils",
+      "broken": false,
+      "derivation": "/nix/store/84ydq79njiiv9mjbin0a4mddkgxfmn1z-pciutils-3.14.0.drv",
+      "description": "Collection of programs for inspecting and manipulating configuration of PCI devices",
+      "install_id": "pciutils",
+      "license": "GPL-2.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=d6c71932130818840fc8fe9509cf50be8c64634f",
+      "name": "pciutils-3.14.0",
+      "pname": "pciutils",
+      "rev": "d6c71932130818840fc8fe9509cf50be8c64634f",
+      "rev_count": 942779,
+      "rev_date": "2026-02-08T14:52:16Z",
+      "scrape_date": "2026-02-09T06:21:03.864139Z",
+      "stabilities": [
+        "unstable",
+        "staging"
+      ],
+      "unfree": false,
+      "version": "3.14.0",
+      "outputs_to_install": [
+        "out",
+        "out",
+        "out",
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/sxffphd8apxrladk3i8fl0g366001vx8-pciutils-3.14.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "python3",
+      "broken": false,
+      "derivation": "/nix/store/bmlsz2bfdg16dr10k8rm3hmkq09h06nr-python3-3.13.11.drv",
+      "description": "High-level dynamically-typed programming language",
+      "install_id": "python3",
+      "license": "Python-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=d6c71932130818840fc8fe9509cf50be8c64634f",
+      "name": "python3-3.13.11",
+      "pname": "python3",
+      "rev": "d6c71932130818840fc8fe9509cf50be8c64634f",
+      "rev_count": 942779,
+      "rev_date": "2026-02-08T14:52:16Z",
+      "scrape_date": "2026-02-09T06:21:17.584167Z",
+      "stabilities": [
+        "unstable",
+        "staging"
+      ],
+      "unfree": false,
+      "version": "3.13.11",
+      "outputs_to_install": [
+        "out",
+        "out",
+        "out",
+        "out",
+        "out",
+        "out",
+        "out"
+      ],
+      "outputs": {
+        "debug": "/nix/store/gvhg8py0jr9v83ysqb86rr2s1yidppca-python3-3.13.11-debug",
+        "out": "/nix/store/slhpx9glq7vl99bwi93bgrhn3syv98s1-python3-3.13.11"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "uv",
+      "broken": false,
+      "derivation": "/nix/store/y4ikgwvfbjjhk45zbgh6g47bzdxjs0n9-uv-0.10.0.drv",
+      "description": "Extremely fast Python package installer and resolver, written in Rust",
+      "install_id": "uv",
+      "license": "[ Apache-2.0, MIT ]",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=d6c71932130818840fc8fe9509cf50be8c64634f",
+      "name": "uv-0.10.0",
+      "pname": "uv",
+      "rev": "d6c71932130818840fc8fe9509cf50be8c64634f",
+      "rev_count": 942779,
+      "rev_date": "2026-02-08T14:52:16Z",
+      "scrape_date": "2026-02-09T06:23:31.836190Z",
+      "stabilities": [
+        "unstable",
+        "staging"
+      ],
+      "unfree": false,
+      "version": "0.10.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/9nvlmhwg9fjy797pza7kjpdhwylj0gfx-uv-0.10.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    }
+  ]
+}

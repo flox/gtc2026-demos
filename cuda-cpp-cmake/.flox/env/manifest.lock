@@ -1,0 +1,256 @@
+{
+  "lockfile-version": 1,
+  "manifest": {
+    "schema-version": "1.10.0",
+    "install": {
+      "cmake": {
+        "pkg-path": "cmake",
+        "outputs": "all"
+      },
+      "cuda_cudart": {
+        "pkg-path": "flox-cuda/cudaPackages_12_4.cuda_cudart",
+        "priority": 5,
+        "systems": [
+          "x86_64-linux"
+        ],
+        "outputs": "all"
+      },
+      "cuda_nvcc": {
+        "pkg-path": "flox-cuda/cudaPackages_12_4.cuda_nvcc",
+        "priority": 4,
+        "systems": [
+          "x86_64-linux"
+        ],
+        "outputs": "all"
+      },
+      "gcc13": {
+        "pkg-path": "gcc13",
+        "priority": 10,
+        "systems": [
+          "x86_64-linux"
+        ],
+        "outputs": "all"
+      },
+      "gnumake": {
+        "pkg-path": "gnumake",
+        "outputs": "all"
+      },
+      "pciutils": {
+        "pkg-path": "pciutils",
+        "outputs": "all"
+      }
+    },
+    "hook": {
+      "on-activate": "  set -euo pipefail\n\n  BUILD_DIR=\"${FLOX_ENV_CACHE}/build\"\n  SRC_DIR=\"${FLOX_ENV_PROJECT}/src\"\n\n  # ---------- Phase 1: GPU detection ----------\n  GPU_STATUS=\"none\"\n  GPU_NAME=\"\"\n\n  if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then\n    GPU_STATUS=\"nvidia-smi\"\n    GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)\n  elif command -v lspci &>/dev/null && lspci | grep -qi nvidia; then\n    GPU_STATUS=\"lspci-only\"\n  fi\n\n  # ---------- Phase 2: Toolchain info ----------\n  GCC_VERSION=$(gcc --version 2>/dev/null | head -1 | grep -oP '[0-9]+\\.[0-9]+\\.[0-9]+' || echo \"unknown\")\n  NVCC_VERSION=\"\"\n  if command -v nvcc &>/dev/null; then\n    NVCC_VERSION=$(nvcc --version 2>/dev/null | grep -oP 'release \\K[0-9]+\\.[0-9]+' || echo \"\")\n  fi\n  CMAKE_VERSION=$(cmake --version 2>/dev/null | head -1 | grep -oP '[0-9]+\\.[0-9]+\\.[0-9]+' || echo \"unknown\")\n\n  echo \"============================================================\"\n  echo \"  CUDA C++ Toolchain (Flox-managed)\"\n  echo \"============================================================\"\n  echo \"  gcc          : ${GCC_VERSION}\"\n  echo \"  nvcc (CUDA)  : ${NVCC_VERSION:-not found}\"\n  echo \"  cmake        : ${CMAKE_VERSION}\"\n  echo \"------------------------------------------------------------\"\n  if [[ \"$GPU_STATUS\" == \"nvidia-smi\" ]]; then\n    DRIVER_VERSION=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)\n    DRIVER_MAX_CUDA=$(nvidia-smi 2>/dev/null | grep -oP 'CUDA Version:\\s+\\K[0-9]+\\.[0-9]+' || echo \"\")\n    echo \"  GPU          : ${GPU_NAME}\"\n    echo \"  Driver       : ${DRIVER_VERSION:-unknown}\"\n    echo \"  Driver CUDA  : ${DRIVER_MAX_CUDA:-unknown}\"\n    echo \"  Status       : GPU ready\"\n  elif [[ \"$GPU_STATUS\" == \"lspci-only\" ]]; then\n    echo \"  GPU          : NVIDIA hardware detected (driver not loaded)\"\n    echo \"  Status       : Build OK, cannot run on GPU\"\n  else\n    echo \"  GPU          : None detected\"\n    echo \"  Status       : Build OK, cannot run on GPU\"\n  fi\n  echo \"============================================================\"\n\n  # ---------- Phase 3: Idempotent build ----------\n  # Rebuild if source files are newer than the binary\n  NEEDS_BUILD=false\n\n  if [ ! -f \"${BUILD_DIR}/gpu-gemm\" ]; then\n    NEEDS_BUILD=true\n  elif [ \"${SRC_DIR}/gpu_gemm.cu\" -nt \"${BUILD_DIR}/gpu-gemm\" ] || [ \"${SRC_DIR}/CMakeLists.txt\" -nt \"${BUILD_DIR}/gpu-gemm\" ]; then\n    NEEDS_BUILD=true\n  fi\n\n  if [ \"$NEEDS_BUILD\" = true ]; then\n    echo \"\"\n    echo \"Building gpu-gemm ...\"\n    mkdir -p \"${BUILD_DIR}\"\n    cmake -S \"${SRC_DIR}\" -B \"${BUILD_DIR}\" \\\n      -DCMAKE_CUDA_COMPILER=\"$(which nvcc)\" \\\n      -DCMAKE_CXX_COMPILER=\"$(which g++)\" \\\n      -DCMAKE_BUILD_TYPE=Release \\\n      2>&1 | sed 's/^/  /'\n    cmake --build \"${BUILD_DIR}\" --parallel 2>&1 | sed 's/^/  /'\n    echo \"Build complete: ${BUILD_DIR}/gpu-gemm\"\n  else\n    echo \"\"\n    echo \"gpu-gemm already built -- skipping (cached)\"\n  fi\n  echo \"\"\n"
+    },
+    "profile": {
+      "common": "  export PATH=\"${FLOX_ENV_CACHE}/build:${PATH}\"\n  export LD_LIBRARY_PATH=\"${FLOX_ENV}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\"\n"
+    },
+    "options": {
+      "systems": [
+        "x86_64-linux"
+      ]
+    }
+  },
+  "packages": [
+    {
+      "attr_path": "cmake",
+      "broken": false,
+      "derivation": "/nix/store/lik9ff49mxmg4018qjp7b3k17ql692m4-cmake-3.31.7.drv",
+      "description": "Cross-platform, open-source build system generator",
+      "install_id": "cmake",
+      "license": "BSD-3-Clause",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "name": "cmake-3.31.7",
+      "pname": "cmake",
+      "rev": "30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "rev_count": 820854,
+      "rev_date": "2025-06-24T14:47:00Z",
+      "scrape_date": "2025-06-28T05:18:50.178836Z",
+      "stabilities": [
+        "unstable",
+        "staging",
+        "stable"
+      ],
+      "unfree": false,
+      "version": "3.31.7",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "debug": "/nix/store/bvc8hzcj7w43nd7hyqfgj9lyj1n5kqkk-cmake-3.31.7-debug",
+        "out": "/nix/store/dx4bdrs7mq3jfviqhszrc7l35ps9kg64-cmake-3.31.7"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cudaPackages_12_4.cuda_cudart",
+      "broken": false,
+      "derivation": "/nix/store/imfqi7iysbrsz8idskg1r230cvhdi9mn-cuda_cudart-12.4.127.drv",
+      "description": "CUDA Runtime (cudart). By downloading and using the packages you accept the terms and conditions of the CUDA EULA",
+      "install_id": "cuda_cudart",
+      "license": "CUDA Toolkit End User License Agreement (EULA)",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "name": "cuda_cudart-12.4.127",
+      "pname": "cuda_cudart",
+      "rev": "30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "rev_count": 820854,
+      "rev_date": "2025-06-24T14:47:00Z",
+      "scrape_date": "2026-03-10T19:55:12.593796650Z",
+      "stabilities": [
+        "unstable",
+        "staging",
+        "stable"
+      ],
+      "unfree": true,
+      "version": "12.4.127",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dev": "/nix/store/40bjbx98acfijw157aram9wq3jymq93j-cuda_cudart-12.4.127-dev",
+        "lib": "/nix/store/9rjpgjjx5s0z5n7s81dpgn0n326dvgx1-cuda_cudart-12.4.127-lib",
+        "out": "/nix/store/89gqng9niyx8yy3ydp4k9jy4zm36q459-cuda_cudart-12.4.127",
+        "static": "/nix/store/v3vcrsl6qzasvi7hysa1idgbgpsxkgda-cuda_cudart-12.4.127-static",
+        "stubs": "/nix/store/lvn5dnc3qxd447c206wpfy3lqb456yzw-cuda_cudart-12.4.127-stubs"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cudaPackages_12_4.cuda_nvcc",
+      "broken": false,
+      "derivation": "/nix/store/s6j50nfgmps7mb6c25g7g3n1siqw7dlc-cuda_nvcc-12.4.131.drv",
+      "description": "CUDA NVCC. By downloading and using the packages you accept the terms and conditions of the CUDA EULA",
+      "install_id": "cuda_nvcc",
+      "license": "CUDA Toolkit End User License Agreement (EULA)",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "name": "cuda_nvcc-12.4.131",
+      "pname": "cuda_nvcc",
+      "rev": "30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "rev_count": 820854,
+      "rev_date": "2025-06-24T14:47:00Z",
+      "scrape_date": "2026-03-10T19:55:12.593798668Z",
+      "stabilities": [
+        "unstable",
+        "staging",
+        "stable"
+      ],
+      "unfree": true,
+      "version": "12.4.131",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/b2q62jr6pbvdkff77c1vf2h0aais5pga-cuda_nvcc-12.4.131",
+        "static": "/nix/store/10hlv8p5lqd0c543rbc7il887x5m11qx-cuda_nvcc-12.4.131-static"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 4
+    },
+    {
+      "attr_path": "gcc13",
+      "broken": false,
+      "derivation": "/nix/store/z6x5n51bf4nmjdpb16a5iyklnifk1iq4-gcc-wrapper-13.3.0.drv",
+      "description": "GNU Compiler Collection, version 13.3.0 (wrapper script)",
+      "install_id": "gcc13",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "name": "gcc-wrapper-13.3.0",
+      "pname": "gcc13",
+      "rev": "30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "rev_count": 820854,
+      "rev_date": "2025-06-24T14:47:00Z",
+      "scrape_date": "2025-06-28T05:18:51.126172Z",
+      "stabilities": [
+        "unstable",
+        "staging",
+        "stable"
+      ],
+      "unfree": false,
+      "version": "13.3.0",
+      "outputs_to_install": [
+        "man",
+        "out"
+      ],
+      "outputs": {
+        "info": "/nix/store/vw2lxsyhswp6zc8w7iyplxrjiq6pdp28-gcc-wrapper-13.3.0-info",
+        "man": "/nix/store/6zvhccknzv2fsp87dx6fmnrv111rjicj-gcc-wrapper-13.3.0-man",
+        "out": "/nix/store/4f40hwsd2gkwmy66c2swy8lyjgrxh7am-gcc-wrapper-13.3.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 10
+    },
+    {
+      "attr_path": "gnumake",
+      "broken": false,
+      "derivation": "/nix/store/4ag52d8v19ncbqgpj6h2zw0fqy6lfa4d-gnumake-4.4.1.drv",
+      "description": "Tool to control the generation of non-source files from sources",
+      "install_id": "gnumake",
+      "license": "GPL-3.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "name": "gnumake-4.4.1",
+      "pname": "gnumake",
+      "rev": "30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "rev_count": 820854,
+      "rev_date": "2025-06-24T14:47:00Z",
+      "scrape_date": "2025-06-28T05:18:51.807798Z",
+      "stabilities": [
+        "unstable",
+        "staging",
+        "stable"
+      ],
+      "unfree": false,
+      "version": "4.4.1",
+      "outputs_to_install": [
+        "man",
+        "out"
+      ],
+      "outputs": {
+        "debug": "/nix/store/6z5kdrm4iz98knwcf6bzkrrdnfc0y521-gnumake-4.4.1-debug",
+        "info": "/nix/store/qjwiip462nkv8dand7zql6np4plzk8rq-gnumake-4.4.1-info",
+        "man": "/nix/store/ylv36wr8356r4ff02nlw1h70cigx582h-gnumake-4.4.1-man",
+        "out": "/nix/store/20ljlr4fvln0pd2xcrhy6bm27bk1dnc7-gnumake-4.4.1"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "pciutils",
+      "broken": false,
+      "derivation": "/nix/store/2nkfmzr07db3hglwnx9kvmma78qzhy92-pciutils-3.13.0.drv",
+      "description": "Collection of programs for inspecting and manipulating configuration of PCI devices",
+      "install_id": "pciutils",
+      "license": "GPL-2.0-or-later",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "name": "pciutils-3.13.0",
+      "pname": "pciutils",
+      "rev": "30a61f056ac492e3b7cdcb69c1e6abdcf00e39cf",
+      "rev_count": 820854,
+      "rev_date": "2025-06-24T14:47:00Z",
+      "scrape_date": "2025-06-28T05:19:05.868771Z",
+      "stabilities": [
+        "unstable",
+        "staging",
+        "stable"
+      ],
+      "unfree": false,
+      "version": "3.13.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/ykqvmhlzvsik80pm5n1nzj44innz7rqf-pciutils-3.13.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    }
+  ]
+}
