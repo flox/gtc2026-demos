@@ -35,6 +35,28 @@ in six lines of TOML, build CUDA C++ anywhere. Compiles and
 runs a tiled SGEMM benchmark — no sudo, no
 `update-alternatives`, no Docker.
 
+## Dual CUDA Versions — Side-by-Side
+
+A key demo story: two Flox environments with **different CUDA
+toolkit versions** running simultaneously on the same host — no
+conflicts, no sudo, no `LD_LIBRARY_PATH` hell.
+
+| Demo | CUDA Version | Package Source |
+|------|-------------|----------------|
+| **Multi-GPU Workflow** | 12.8 | `cudatoolkit ^12.8` |
+| **CUDA C++ CMake** | 12.4 | `flox-cuda/cudaPackages_12_4.*` |
+
+Open two terminals. `flox activate` in each demo directory.
+Both environments work at the same time — one compiling C++
+with CUDA 12.4, the other running PyTorch inference with
+CUDA 12.8. The host driver supports both via NVIDIA's forward
+compatibility (a driver that supports 12.8 automatically
+supports all earlier 12.x versions).
+
+This demonstrates that Flox environments are fully isolated:
+each gets its own CUDA toolkit, its own compiler, its own
+libraries — without any system-level configuration.
+
 ## Background: GPU/CUDA Pain Points
 
 See [GPU_CUDA_PAIN_POINTS.md](GPU_CUDA_PAIN_POINTS.md) for a

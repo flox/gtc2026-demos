@@ -7,11 +7,11 @@ version = 1
 # errors without touching the system compiler.
 # ----------------------------------------------------------------------------
 [install]
-cuda_nvcc.pkg-path = "flox-cuda/cudaPackages.cuda_nvcc"
+cuda_nvcc.pkg-path = "flox-cuda/cudaPackages_12_4.cuda_nvcc"
 cuda_nvcc.systems = ["x86_64-linux"]
 cuda_nvcc.priority = 4
 
-cuda_cudart.pkg-path = "flox-cuda/cudaPackages.cuda_cudart"
+cuda_cudart.pkg-path = "flox-cuda/cudaPackages_12_4.cuda_cudart"
 cuda_cudart.systems = ["x86_64-linux"]
 cuda_cudart.priority = 5
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""GPU environment diagnostic tool for the Brev Multi-GPU Workflow demo.
+"""GPU environment diagnostic tool for the Multi-GPU Workflow demo.
 
 Four modes:
   python test_gpu.py           # Full environment report
@@ -39,7 +39,7 @@ def gpu_arch_name(major: int) -> str:
 # ---------------------------------------------------------------------------
 def full_report() -> None:
     print("=" * 60)
-    print("  Brev Multi-GPU Workflow — Environment Report")
+    print("  Multi-GPU Workflow — Environment Report")
     print("=" * 60)
     print()
 
@@ -67,7 +67,7 @@ def full_report() -> None:
         print("GPUs found  : 0  (CPU-only mode)")
         print()
         print("  No NVIDIA GPU detected.  PyTorch is using CPU-only wheels.")
-        print("  On a Brev GPU instance this would show GPU details.")
+        print("  On a cloud GPU instance this would show GPU details.")
         print()
 
     print("=" * 60)
@@ -151,7 +151,7 @@ def run_inference(prompt: str) -> None:
         precision = "float32"
 
     print("=" * 60)
-    print("  Brev Multi-GPU Workflow — LLM Inference")
+    print("  Multi-GPU Workflow — LLM Inference")
     print("=" * 60)
     print()
     print(f"Model       : {MODEL_ID}")

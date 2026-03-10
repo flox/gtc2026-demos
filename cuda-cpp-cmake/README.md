@@ -116,7 +116,7 @@ builds the project automatically:
   CUDA C++ Toolchain (Flox-managed)
 ============================================================
   gcc          : 13.4.0
-  nvcc (CUDA)  : 12.8
+  nvcc (CUDA)  : 12.4
   cmake        : 3.30.5
 ------------------------------------------------------------
   GPU          : NVIDIA A100-SXM4-80GB
@@ -157,7 +157,7 @@ exactly as it was.
 
 This manifest is checked into git. New developer clones the
 repo, runs `flox activate`, gets the exact same toolchain —
-gcc 13.4, CUDA 12.8, cmake 3.30. On Ubuntu, Fedora, NixOS,
+gcc 13.4, CUDA 12.4, cmake 3.30. On Ubuntu, Fedora, NixOS,
 bare metal, cloud instances.
 
 Six lines of TOML replaced three pages of setup instructions.
