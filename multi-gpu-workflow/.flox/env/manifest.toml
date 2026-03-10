@@ -1,0 +1,196 @@
+# Flox manifest version managed by Flox CLI
+version = 1
+
+# --- Packages ---------------------------------------------------------------
+# Level 1: Declarative packages — identical on every x86_64-linux machine.
+# Level 2: PyTorch installed by on-activate hook (GPU-aware wheel selection).
+# ----------------------------------------------------------------------------
+[install]
+python3.pkg-path = "python3"
+python3.version = "^3.12"
+
+uv.pkg-path = "uv"
+
+pciutils.pkg-path = "pciutils"
+
+cudatoolkit.pkg-path = "cudatoolkit"
+cudatoolkit.version = "^12.8"
+cudatoolkit.systems = ["x86_64-linux"]
+cudatoolkit.priority = 5
+gcc-unwrapped.pkg-path = "gcc-unwrapped"
+gcc-unwrapped.systems = ["x86_64-linux"]
+
+# --- Hook --------------------------------------------------------------------
+# on-activate runs in bash during `flox activate`.  Three phases:
+#   Phase 1 — Detect GPU hardware (nvidia-smi or lspci fallback)
+#   Phase 2 — Validate driver/toolkit compatibility (CUDA version check)
+#   Phase 3 — Install the matching PyTorch wheel + ML libraries via uv into a
+#             persistent venv
+# The venv lives in $FLOX_ENV_CACHE/venv so it survives across activations.
+# ----------------------------------------------------------------------------
+[hook]
+on-activate = """
+  set -euo pipefail
+
+  VENV_DIR="${FLOX_ENV_CACHE}/venv"
+  MARKER_FILE="${VENV_DIR}/.torch-variant"
+  REQUIRED_CUDA="12.8"
+
+  # ---------- Helper: version comparison ----------
+  # Returns 0 (true) if $1 >= $2 comparing major.minor
+  version_ge() {
+    local v1_major v1_minor v2_major v2_minor
+    IFS='.' read -r v1_major v1_minor <<< "$1"
+    IFS='.' read -r v2_major v2_minor <<< "$2"
+    (( v1_major > v2_major )) && return 0
+    (( v1_major == v2_major && v1_minor >= v2_minor )) && return 0
+    return 1
+  }
+
+  # ---------- Phase 1: GPU detection ----------
+  TORCH_VARIANT="cpu"
+  TORCH_INDEX="https://download.pytorch.org/whl/cpu"
+  GPU_STATUS="none"
+
+  if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
+    GPU_STATUS="nvidia-smi"
+  elif command -v lspci &>/dev/null && lspci | grep -qi nvidia; then
+    GPU_STATUS="lspci-only"
+  fi
+
+  # ---------- Phase 2: Driver compatibility validation ----------
+  if [[ "$GPU_STATUS" == "nvidia-smi" ]]; then
+    DRIVER_VERSION=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)
+    DRIVER_MAX_CUDA=$(nvidia-smi 2>/dev/null | grep -oP 'CUDA Version:\\s+\\K[0-9]+\\.[0-9]+' || echo "")
+
+    # Check what nvcc reports (from Flox-provided cudatoolkit)
+    NVCC_VERSION=""
+    if command -v nvcc &>/dev/null; then
+      NVCC_VERSION=$(nvcc --version 2>/dev/null | grep -oP 'release \\K[0-9]+\\.[0-9]+' || echo "")
+    fi
+
+    echo "------------------------------------------------------------"
+    echo "  CUDA Compatibility Check"
+    echo "------------------------------------------------------------"
+    echo "  Driver version     : ${DRIVER_VERSION:-unknown}"
+    echo "  Driver max CUDA    : ${DRIVER_MAX_CUDA:-unknown}"
+    echo "  Toolkit (manifest) : cudatoolkit ^${REQUIRED_CUDA}"
+    echo "  nvcc reports       : ${NVCC_VERSION:-not found}"
+    echo "  PyTorch target     : cu${REQUIRED_CUDA//./}"
+    echo "------------------------------------------------------------"
+
+    if [[ -z "$DRIVER_MAX_CUDA" ]]; then
+      echo "  WARNING: Could not parse driver CUDA version."
+      echo "  Proceeding with CUDA wheels -- may fail at runtime."
+      echo "------------------------------------------------------------"
+      TORCH_VARIANT="cu128"
+      TORCH_INDEX="https://download.pytorch.org/whl/cu128"
+
+    elif version_ge "$DRIVER_MAX_CUDA" "$REQUIRED_CUDA"; then
+      echo "  Status: COMPATIBLE (driver supports CUDA ${DRIVER_MAX_CUDA} >= ${REQUIRED_CUDA})"
+      echo "------------------------------------------------------------"
+      TORCH_VARIANT="cu128"
+      TORCH_INDEX="https://download.pytorch.org/whl/cu128"
+
+    else
+      echo "  Status: INCOMPATIBLE"
+      echo ""
+      echo "  Driver supports up to CUDA ${DRIVER_MAX_CUDA},"
+      echo "  but this environment needs CUDA ${REQUIRED_CUDA}."
+      echo ""
+      echo "  Options:"
+      echo "    1. Upgrade NVIDIA driver (recommended)"
+      echo "    2. Lower cudatoolkit version in manifest.toml"
+      echo ""
+      echo "  Falling back to CPU-only PyTorch wheels."
+      echo "------------------------------------------------------------"
+      # Stay on cpu variant -- don't install CUDA wheels that will break
+    fi
+
+  elif [[ "$GPU_STATUS" == "lspci-only" ]]; then
+    echo "------------------------------------------------------------"
+    echo "  GPU Hardware Detected -- Driver Not Responding"
+    echo "------------------------------------------------------------"
+    echo "  lspci sees NVIDIA hardware, but nvidia-smi failed."
+    echo "  The driver may not be installed or loaded."
+    echo ""
+    echo "  CUDA wheels require a working driver."
+    echo "  Falling back to CPU-only PyTorch wheels."
+    echo "------------------------------------------------------------"
+    # Stay on cpu variant -- CUDA won't work without a driver
+
+  else
+    echo "No NVIDIA GPU detected -> using CPU-only wheels"
+  fi
+
+  # ---------- Phase 3: Idempotent install ----------
+  if [ -f "$MARKER_FILE" ] && [ "$(cat "$MARKER_FILE")" = "$TORCH_VARIANT" ]; then
+    echo "PyTorch ($TORCH_VARIANT) already installed -- skipping"
+  else
+    echo "Installing PyTorch ($TORCH_VARIANT) ..."
+
+    # (Re)create venv if variant changed or first run
+    if [ -d "$VENV_DIR" ]; then
+      rm -rf "$VENV_DIR"
+    fi
+    uv venv "$VENV_DIR" --python python3
+
+    # Step 1: PyTorch from the variant-specific index
+    uv pip install --python "$VENV_DIR/bin/python" \
+      torch torchvision torchaudio \
+      --index-url "$TORCH_INDEX"
+
+    # Step 2: ML libraries from standard PyPI
+    uv pip install --python "$VENV_DIR/bin/python" \
+      transformers accelerate
+
+    echo "$TORCH_VARIANT" > "$MARKER_FILE"
+    echo "PyTorch ($TORCH_VARIANT) installed successfully"
+  fi
+
+  # ---------- Library path for PyTorch ----------
+  # gcc-unwrapped provides libstdc++.so in $FLOX_ENV/lib; PyTorch needs it at runtime.
+  export LD_LIBRARY_PATH="${FLOX_ENV}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+  # ---------- Activate the venv ----------
+  export VIRTUAL_ENV="$VENV_DIR"
+  export PATH="${VENV_DIR}/bin:${PATH}"
+"""
+
+# --- Profile -----------------------------------------------------------------
+# Shell functions available after activation.
+# ----------------------------------------------------------------------------
+[profile]
+common = """
+  # Library path for PyTorch (libstdc++ from gcc-unwrapped)
+  export LD_LIBRARY_PATH="${FLOX_ENV}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+  # Flox overrides both PATH and PYTHONPATH after the profile runs, so the
+  # Flox-provided python3 always wins and venv site-packages are not visible.
+  # Shell functions override PATH lookups, so we use them to ensure the venv
+  # python is used for all interactive commands.
+  export VIRTUAL_ENV="${FLOX_ENV_CACHE}/venv"
+  python3() { "${FLOX_ENV_CACHE}/venv/bin/python3" "$@"; }
+  python()  { "${FLOX_ENV_CACHE}/venv/bin/python"  "$@"; }
+  export -f python3 python
+
+  # Quick GPU status helper
+  gpu-info() {
+    python3 -c "
+import torch, sys
+print(f'PyTorch {torch.__version__}')
+print(f'CUDA available: {torch.cuda.is_available()}')
+if torch.cuda.is_available():
+    for i in range(torch.cuda.device_count()):
+        props = torch.cuda.get_device_properties(i)
+        print(f'  GPU {i}: {props.name}  ({props.total_mem // (1024**3)} GB)')
+        print(f'    Compute: {props.major}.{props.minor}')
+else:
+    print('  Running in CPU-only mode')
+"
+  }
+"""
+
+# --- Options -----------------------------------------------------------------
+[options]
+systems = ["x86_64-linux"]

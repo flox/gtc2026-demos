@@ -1,0 +1,125 @@
+# Flox manifest version managed by Flox CLI
+version = 1
+
+# --- Packages ---------------------------------------------------------------
+# The key insight: nvcc (CUDA 12.x) requires gcc <= 13, but modern Linux ships
+# gcc 14-15. Pinning gcc13 in the manifest eliminates "unsupported GNU version"
+# errors without touching the system compiler.
+# ----------------------------------------------------------------------------
+[install]
+cuda_nvcc.pkg-path = "flox-cuda/cudaPackages.cuda_nvcc"
+cuda_nvcc.systems = ["x86_64-linux"]
+cuda_nvcc.priority = 4
+
+cuda_cudart.pkg-path = "flox-cuda/cudaPackages.cuda_cudart"
+cuda_cudart.systems = ["x86_64-linux"]
+cuda_cudart.priority = 5
+
+gcc13.pkg-path = "gcc13"
+gcc13.systems = ["x86_64-linux"]
+gcc13.priority = 10
+
+cmake.pkg-path = "cmake"
+
+gnumake.pkg-path = "gnumake"
+
+pciutils.pkg-path = "pciutils"
+
+# --- Hook --------------------------------------------------------------------
+# on-activate runs in bash during `flox activate`.  Three phases:
+#   Phase 1 — Detect GPU hardware (nvidia-smi or lspci fallback)
+#   Phase 2 — Print toolchain info (gcc, nvcc, cmake versions)
+#   Phase 3 — Build the project into $FLOX_ENV_CACHE/build (idempotent)
+# The build directory is cached so subsequent activations are instant.
+# ----------------------------------------------------------------------------
+[hook]
+on-activate = """
+  set -euo pipefail
+
+  BUILD_DIR="${FLOX_ENV_CACHE}/build"
+  SRC_DIR="${FLOX_ENV_PROJECT}/src"
+
+  # ---------- Phase 1: GPU detection ----------
+  GPU_STATUS="none"
+  GPU_NAME=""
+
+  if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
+    GPU_STATUS="nvidia-smi"
+    GPU_NAME=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)
+  elif command -v lspci &>/dev/null && lspci | grep -qi nvidia; then
+    GPU_STATUS="lspci-only"
+  fi
+
+  # ---------- Phase 2: Toolchain info ----------
+  GCC_VERSION=$(gcc --version 2>/dev/null | head -1 | grep -oP '[0-9]+\\.[0-9]+\\.[0-9]+' || echo "unknown")
+  NVCC_VERSION=""
+  if command -v nvcc &>/dev/null; then
+    NVCC_VERSION=$(nvcc --version 2>/dev/null | grep -oP 'release \\K[0-9]+\\.[0-9]+' || echo "")
+  fi
+  CMAKE_VERSION=$(cmake --version 2>/dev/null | head -1 | grep -oP '[0-9]+\\.[0-9]+\\.[0-9]+' || echo "unknown")
+
+  echo "============================================================"
+  echo "  CUDA C++ Toolchain (Flox-managed)"
+  echo "============================================================"
+  echo "  gcc          : ${GCC_VERSION}"
+  echo "  nvcc (CUDA)  : ${NVCC_VERSION:-not found}"
+  echo "  cmake        : ${CMAKE_VERSION}"
+  echo "------------------------------------------------------------"
+  if [[ "$GPU_STATUS" == "nvidia-smi" ]]; then
+    DRIVER_VERSION=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)
+    DRIVER_MAX_CUDA=$(nvidia-smi 2>/dev/null | grep -oP 'CUDA Version:\\s+\\K[0-9]+\\.[0-9]+' || echo "")
+    echo "  GPU          : ${GPU_NAME}"
+    echo "  Driver       : ${DRIVER_VERSION:-unknown}"
+    echo "  Driver CUDA  : ${DRIVER_MAX_CUDA:-unknown}"
+    echo "  Status       : GPU ready"
+  elif [[ "$GPU_STATUS" == "lspci-only" ]]; then
+    echo "  GPU          : NVIDIA hardware detected (driver not loaded)"
+    echo "  Status       : Build OK, cannot run on GPU"
+  else
+    echo "  GPU          : None detected"
+    echo "  Status       : Build OK, cannot run on GPU"
+  fi
+  echo "============================================================"
+
+  # ---------- Phase 3: Idempotent build ----------
+  # Rebuild if source files are newer than the binary
+  NEEDS_BUILD=false
+
+  if [ ! -f "${BUILD_DIR}/gpu-gemm" ]; then
+    NEEDS_BUILD=true
+  elif [ "${SRC_DIR}/gpu_gemm.cu" -nt "${BUILD_DIR}/gpu-gemm" ] || \
+       [ "${SRC_DIR}/CMakeLists.txt" -nt "${BUILD_DIR}/gpu-gemm" ]; then
+    NEEDS_BUILD=true
+  fi
+
+  if [ "$NEEDS_BUILD" = true ]; then
+    echo ""
+    echo "Building gpu-gemm ..."
+    mkdir -p "${BUILD_DIR}"
+    cmake -S "${SRC_DIR}" -B "${BUILD_DIR}" \\
+      -DCMAKE_CUDA_COMPILER="$(which nvcc)" \\
+      -DCMAKE_CXX_COMPILER="$(which g++)" \\
+      -DCMAKE_BUILD_TYPE=Release \\
+      2>&1 | sed 's/^/  /'
+    cmake --build "${BUILD_DIR}" --parallel 2>&1 | sed 's/^/  /'
+    echo "Build complete: ${BUILD_DIR}/gpu-gemm"
+  else
+    echo ""
+    echo "gpu-gemm already built -- skipping (cached)"
+  fi
+  echo ""
+"""
+
+# --- Profile -----------------------------------------------------------------
+# Shell configuration available after activation.
+# Adds the build directory to PATH so `gpu-gemm` is available as a command.
+# ----------------------------------------------------------------------------
+[profile]
+common = """
+  export PATH="${FLOX_ENV_CACHE}/build:${PATH}"
+  export LD_LIBRARY_PATH="${FLOX_ENV}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+"""
+
+# --- Options -----------------------------------------------------------------
+[options]
+systems = ["x86_64-linux"]

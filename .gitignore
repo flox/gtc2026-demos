@@ -1,0 +1,30 @@
+# Flox build artifacts
+.flox/log/
+.flox/cache/
+.flox/run/
+.flox/lib/
+.flox/env/manifest.lock
+
+# Build artifacts
+*.o
+*.obj
+*.exe
+gpu-gemm
+build/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Claude Code
+.claude/
