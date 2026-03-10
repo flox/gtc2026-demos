@@ -4,7 +4,9 @@
 
 ## What This Demo Shows
 
-Flox creates declarative, reproducible development environments. You declare what you need in a manifest, Flox handles the rest, and it works the same everywhere.
+Flox creates declarative, reproducible development
+environments. You declare what you need in a manifest, Flox
+handles the rest, and it works the same everywhere.
 
 ## The Problem
 
@@ -36,7 +38,8 @@ python = {}
 nodejs = {}
 ```
 
-That's the entire environment definition. No version hunting, no compatibility tables, no manual steps.
+That's the entire environment definition. No version hunting,
+no compatibility tables, no manual steps.
 
 ### 2. Activate and Use (30-45 sec)
 
@@ -47,7 +50,8 @@ node --version
 which python
 ```
 
-These come from the Flox environment, not the system. Completely isolated.
+These come from the Flox environment, not the system.
+Completely isolated.
 
 ### 3. Share and Reproduce (1-1.5 min)
 
@@ -62,37 +66,58 @@ flox activate -r yourname/my-demo-app
 python --version   # Same version, same everything
 ```
 
-Same manifest, same environment. No README to follow, no manual steps.
+Same manifest, same environment. No README to follow, no
+manual steps.
 
 ### 4. Key Differences (30 sec)
 
-- **Unlike Docker**: Flox doesn't containerize. It's your development environment, running natively.
-- **Unlike virtualenv/conda**: Flox handles everything, not just Python. Your whole stack.
-- **Unlike package managers**: Flox is declarative and reproducible. Same manifest always gives the same environment.
+- **Unlike Docker**: Flox doesn't containerize. It's your
+  development environment, running natively.
+- **Unlike virtualenv/conda**: Flox handles everything, not
+  just Python. Your whole stack.
+- **Unlike package managers**: Flox is declarative and
+  reproducible. Same manifest always gives the same
+  environment.
 
 ### 5. Transition to GPU Demos (30 sec)
 
-Those challenges — same environment everywhere, no manual version hunting — are **10x worse** with CUDA. The NVIDIA driver has to be on the host (it's a kernel module), but everything above the driver — the CUDA toolkit, compiler, runtime, libraries — that's what Flox manages. And you don't have to install the whole toolkit; you can install just the pieces you need.
+Those challenges — same environment everywhere, no manual
+version hunting — are **10x worse** with CUDA. The NVIDIA
+driver has to be on the host (it's a kernel module), but
+everything above the driver — the CUDA toolkit, compiler,
+runtime, libraries — that's what Flox manages. And you don't
+have to install the whole toolkit; you can install just the
+pieces you need.
 
 ## Q&A
 
 **Q: Is this like Docker?**
-A: Similar goal (reproducibility), different approach. Flox is for development environments, runs natively. Docker is for deployment and isolation via containers. They complement each other.
+A: Similar goal (reproducibility), different approach. Flox is
+for development environments, runs natively. Docker is for
+deployment and isolation via containers. They complement each
+other.
 
-**Q: What about language-specific tools like virtualenv, npm, bundler?**
-A: Flox includes those tools and more. It manages your entire environment — language runtime, system libraries, tools. Think of it as a layer above those tools.
+**Q: What about language-specific tools like virtualenv, npm,
+bundler?**
+A: Flox includes those tools and more. It manages your entire
+environment — language runtime, system libraries, tools. Think
+of it as a layer above those tools.
 
 **Q: Does this work on Windows?**
-A: Flox works on macOS and Linux natively. Windows support is via WSL2.
+A: Flox works on macOS and Linux natively. Windows support is
+via WSL2.
 
 **Q: How big are these environments?**
-A: Packages are shared across environments via Nix store. Reuses common dependencies efficiently.
+A: Packages are shared across environments via Nix store.
+Reuses common dependencies efficiently.
 
 **Q: Can I use this in production?**
-A: Yes. Many teams do. You can also use Flox to build containers for production deployment.
+A: Yes. Many teams do. You can also use Flox to build
+containers for production deployment.
 
 **Q: What package repositories does Flox use?**
-A: Flox uses nixpkgs, which has 100,000+ packages. Most common tools and languages are available.
+A: Flox uses nixpkgs, which has 100,000+ packages. Most common
+tools and languages are available.
 
 ## Setup Requirements
 

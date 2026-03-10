@@ -56,7 +56,7 @@ def full_report() -> None:
         for i in range(count):
             props = torch.cuda.get_device_properties(i)
             arch = gpu_arch_name(props.major)
-            mem_gb = props.total_mem / (1024 ** 3)
+            mem_gb = props.total_memory / (1024 ** 3)
             print(f"  [{i}] {props.name}")
             print(f"      Compute capability : {props.major}.{props.minor}")
             print(f"      Architecture       : {arch}")
