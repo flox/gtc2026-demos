@@ -230,8 +230,8 @@ hardware-aware resolution to the resolver itself.
 
 ### Hardware
 - Local development machine (laptop, no GPU required)
-- Cloud GPU instances with A100 and H100 (e.g., Brev, AWS,
-  GCP)
+- Cloud GPU instances with A100 and H100 (e.g., AWS, GCP,
+  Azure)
 
 ### Software
 - Flox installed locally and on GPU instances
