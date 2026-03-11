@@ -58,9 +58,6 @@ conda-forge version doesn't include `nvcc`. Flox provides a
 single coherent `cudatoolkit` from Nixpkgs with `nvcc`
 included, isolated from system libraries.
 
-See [GPU_CUDA_PAIN_POINTS.md](../GPU_CUDA_PAIN_POINTS.md) for
-the full inventory.
-
 ## How It Works
 
 **Level 1 — Declarative manifest packages** (Flox/Nix
@@ -139,7 +136,8 @@ python test_gpu.py --infer   # ~100+ tok/s
 | Instance | GPU | What Happens | Speed |
 |----------|-----|--------------|-------|
 | Laptop | None | No GPU -> CPU-only wheels | ~4 tok/s |
-| Cloud A100 | A100 (sm_80) | GPU -> CUDA 12.8 wheels | ~70+ tok/s |
+| Desktop RTX 2070 | RTX 2070 (sm_75) | GPU -> CUDA 12.8 wheels | ~20+ tok/s |
+| Cloud A100 | A100 (sm_80) | GPU -> CUDA 12.8 wheels (same!) | ~70+ tok/s |
 | Cloud H100 | H100 (sm_90) | GPU -> CUDA 12.8 wheels (same!) | ~100+ tok/s |
 
 **Same manifest.toml. Same hook. Same wheels on GPU machines.

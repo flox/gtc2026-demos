@@ -57,13 +57,6 @@ This demonstrates that Flox environments are fully isolated:
 each gets its own CUDA toolkit, its own compiler, its own
 libraries — without any system-level configuration.
 
-## Background: GPU/CUDA Pain Points
-
-See [GPU_CUDA_PAIN_POINTS.md](GPU_CUDA_PAIN_POINTS.md) for a
-comprehensive inventory of the 51 real-world pain points
-developers face with NVIDIA GPUs and CUDA. The demos above
-address several of the most common ones.
-
 ## Getting Started
 
 1. **Install Flox**: https://flox.dev/docs/install-flox/
