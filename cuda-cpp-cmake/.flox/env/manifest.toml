@@ -121,7 +121,6 @@ on-activate = """
 [profile]
 common = """
   export PATH="${FLOX_ENV_CACHE}/build:${PATH}"
-  export LD_LIBRARY_PATH="${FLOX_ENV}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 """
 
 # --- Options -----------------------------------------------------------------
