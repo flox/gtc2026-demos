@@ -152,10 +152,6 @@ on-activate = """
     echo "PyTorch ($TORCH_VARIANT) installed successfully"
   fi
 
-  # ---------- Library path for PyTorch ----------
-  # gcc-unwrapped provides libstdc++.so in $FLOX_ENV/lib; PyTorch needs it at runtime.
-  export LD_LIBRARY_PATH="${FLOX_ENV}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-
   # ---------- Activate the venv ----------
   export VIRTUAL_ENV="$VENV_DIR"
   export PATH="${VENV_DIR}/bin:${PATH}"
@@ -166,9 +162,6 @@ on-activate = """
 # ----------------------------------------------------------------------------
 [profile]
 common = """
-  # Library path for PyTorch (libstdc++ from gcc-unwrapped)
-  export LD_LIBRARY_PATH="${FLOX_ENV}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-
   # Flox overrides both PATH and PYTHONPATH after the profile runs, so the
   # Flox-provided python3 always wins and venv site-packages are not visible.
   # Shell functions override PATH lookups, so we use them to ensure the venv
