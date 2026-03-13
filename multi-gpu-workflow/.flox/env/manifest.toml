@@ -38,7 +38,6 @@ on-activate = """
 
   VENV_DIR="${FLOX_ENV_CACHE}/venv"
   MARKER_FILE="${VENV_DIR}/.torch-variant"
-  REQUIRED_CUDA="12.8"
 
   # ---------- Helper: version comparison ----------
   # Returns 0 (true) if $1 >= $2 comparing major.minor
@@ -50,6 +49,14 @@ on-activate = """
     (( v1_major == v2_major && v1_minor >= v2_minor )) && return 0
     return 1
   }
+
+  # ---------- Detect toolkit version from Flox-provided nvcc ----------
+  NVCC_VERSION=""
+  if command -v nvcc &>/dev/null; then
+    NVCC_VERSION=$(nvcc --version 2>/dev/null | grep -oP 'release \\K[0-9]+\\.[0-9]+' || echo "")
+  fi
+  REQUIRED_CUDA="${NVCC_VERSION:-12.8}"
+  CUDA_TAG="cu${REQUIRED_CUDA//./}"
 
   # ---------- Phase 1: GPU detection ----------
   TORCH_VARIANT="cpu"
@@ -67,34 +74,27 @@ on-activate = """
     DRIVER_VERSION=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)
     DRIVER_MAX_CUDA=$(nvidia-smi 2>/dev/null | grep -oP 'CUDA Version:\\s+\\K[0-9]+\\.[0-9]+' || echo "")
 
-    # Check what nvcc reports (from Flox-provided cudatoolkit)
-    NVCC_VERSION=""
-    if command -v nvcc &>/dev/null; then
-      NVCC_VERSION=$(nvcc --version 2>/dev/null | grep -oP 'release \\K[0-9]+\\.[0-9]+' || echo "")
-    fi
-
     echo "------------------------------------------------------------"
     echo "  CUDA Compatibility Check"
     echo "------------------------------------------------------------"
     echo "  Driver version     : ${DRIVER_VERSION:-unknown}"
     echo "  Driver max CUDA    : ${DRIVER_MAX_CUDA:-unknown}"
-    echo "  Toolkit (manifest) : cudatoolkit ^${REQUIRED_CUDA}"
-    echo "  nvcc reports       : ${NVCC_VERSION:-not found}"
-    echo "  PyTorch target     : cu${REQUIRED_CUDA//./}"
+    echo "  Toolkit (nvcc)     : ${NVCC_VERSION:-not found}"
+    echo "  PyTorch target     : ${CUDA_TAG}"
     echo "------------------------------------------------------------"
 
     if [[ -z "$DRIVER_MAX_CUDA" ]]; then
       echo "  WARNING: Could not parse driver CUDA version."
       echo "  Proceeding with CUDA wheels -- may fail at runtime."
       echo "------------------------------------------------------------"
-      TORCH_VARIANT="cu128"
-      TORCH_INDEX="https://download.pytorch.org/whl/cu128"
+      TORCH_VARIANT="$CUDA_TAG"
+      TORCH_INDEX="https://download.pytorch.org/whl/${CUDA_TAG}"
 
     elif version_ge "$DRIVER_MAX_CUDA" "$REQUIRED_CUDA"; then
       echo "  Status: COMPATIBLE (driver supports CUDA ${DRIVER_MAX_CUDA} >= ${REQUIRED_CUDA})"
       echo "------------------------------------------------------------"
-      TORCH_VARIANT="cu128"
-      TORCH_INDEX="https://download.pytorch.org/whl/cu128"
+      TORCH_VARIANT="$CUDA_TAG"
+      TORCH_INDEX="https://download.pytorch.org/whl/${CUDA_TAG}"
 
     else
       echo "  Status: INCOMPATIBLE"
