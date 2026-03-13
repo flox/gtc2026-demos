@@ -7,22 +7,19 @@ schema-version = "1.10.0"
 [install]
 python3.pkg-path = "python3"
 python3.version = "^3.12"
-python3.outputs = "all"
 
 uv.pkg-path = "uv"
-uv.outputs = "all"
 
 pciutils.pkg-path = "pciutils"
-pciutils.outputs = "all"
 
-cudatoolkit.pkg-path = "flox-cuda/cudaPackages.cudatoolkit"
-cudatoolkit.version = "^12.8"
+# Switch CUDA version by changing the version line:
+#   "cuda-merged-12.8" or "cuda-merged-12.4"
+cudatoolkit.pkg-path = "flox-cuda/cudaPackages_12.cudatoolkit"
+cudatoolkit.version = "cuda-merged-12.8"
 cudatoolkit.systems = ["x86_64-linux"]
 cudatoolkit.priority = 5
-cudatoolkit.outputs = "all"
 gcc-unwrapped.pkg-path = "gcc-unwrapped"
 gcc-unwrapped.systems = ["x86_64-linux"]
-gcc-unwrapped.outputs = "all"
 
 # --- Hook --------------------------------------------------------------------
 # on-activate runs in bash during `flox activate`.  Three phases:

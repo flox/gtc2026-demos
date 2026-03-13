@@ -9,23 +9,19 @@ schema-version = "1.10.0"
 cuda_nvcc.pkg-path = "flox-cuda/cudaPackages_12_4.cuda_nvcc"
 cuda_nvcc.systems = ["x86_64-linux"]
 cuda_nvcc.priority = 4
-cuda_nvcc.outputs = "all"
 
 cuda_cudart.pkg-path = "flox-cuda/cudaPackages_12_4.cuda_cudart"
 cuda_cudart.systems = ["x86_64-linux"]
 cuda_cudart.priority = 5
-cuda_cudart.outputs = "all"
+cuda_cudart.outputs = ["dev"]
 
 gcc13.pkg-path = "gcc13"
 gcc13.systems = ["x86_64-linux"]
 gcc13.priority = 10
-gcc13.outputs = "all"
 
 cmake.pkg-path = "cmake"
-cmake.outputs = "all"
 
 gnumake.pkg-path = "gnumake"
-gnumake.outputs = "all"
 
 pciutils.pkg-path = "pciutils"
 
