@@ -7,12 +7,11 @@ DIM='\033[2m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_DIR="${1:-$SCRIPT_DIR/cuda-cpp-cmake}"
+ENV_DIR="${1:-$(pwd)}"
 
 if [ ! -d "$ENV_DIR/.flox" ]; then
-    echo "Usage: $0 [flox-environment-dir]"
     echo "No .flox directory found in: $ENV_DIR"
+    echo "Run this from a directory with a Flox environment, or pass one as an argument."
     exit 1
 fi
 
