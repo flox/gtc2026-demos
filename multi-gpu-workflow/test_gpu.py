@@ -167,7 +167,7 @@ def run_inference(prompt: str) -> None:
     load_start = time.perf_counter()
     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
     model = AutoModelForCausalLM.from_pretrained(
-        MODEL_ID, torch_dtype=dtype
+        MODEL_ID, dtype=dtype, attn_implementation="eager"
     ).to(device)
     model.eval()
     load_time = time.perf_counter() - load_start
