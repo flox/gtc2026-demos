@@ -140,15 +140,16 @@ def benchmark(size: int = 4096, iterations: int = 50) -> None:
 def run_inference(prompt: str) -> None:
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    # Auto-detect device and precision
+    # Auto-detect device; always use float32 for inference.
+    # float16 CUBLAS ops can fail when system CUDA libs (e.g. 12.9) don't
+    # match the PyTorch wheel's CUDA version (e.g. cu128).  The 0.5B model
+    # fits easily in float32 on any modern GPU.
     if torch.cuda.is_available():
         device = "cuda"
-        dtype = torch.float16
-        precision = "float16"
     else:
         device = "cpu"
-        dtype = torch.float32
-        precision = "float32"
+    dtype = torch.float32
+    precision = "float32"
 
     print("=" * 60)
     print("  Multi-GPU Workflow — LLM Inference")
