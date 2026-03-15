@@ -1,10 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-# Install Flox
-wget https://downloads.flox.dev/by-env/nightly/deb/flox-1.10.0-35-gfed448a4.x86_64-linux.deb
-sudo apt install -y ./flox-1.10.0-35-gfed448a4.x86_64-linux.deb
-rm -f ./flox-1.10.0-35-gfed448a4.x86_64-linux.deb
+# Install Flox if not already installed
+if ! command -v flox &>/dev/null; then
+    wget https://downloads.flox.dev/by-env/nightly/deb/flox-1.10.0-35-gfed448a4.x86_64-linux.deb
+    sudo apt install -y ./flox-1.10.0-35-gfed448a4.x86_64-linux.deb
+    rm -f ./flox-1.10.0-35-gfed448a4.x86_64-linux.deb
+fi
 
 # Determine repo root: if running from within the repo, use it; otherwise clone
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
