@@ -59,6 +59,27 @@ libraries — without any system-level configuration.
 
 ## Getting Started
 
+### Quick Setup
+
+Run the setup script to install Flox and pre-warm the
+environment caches so that `flox activate` is instant:
+
+```bash
+./setup.sh
+```
+
+The script will:
+- Install the Flox CLI
+- Pre-activate each demo environment to download all
+  dependencies ahead of time
+- Clean up temporary caches
+
+It auto-detects whether it's running inside a clone of this
+repo (e.g. on Brev) or standalone. If run standalone it will
+clone the repo first.
+
+### Manual Setup
+
 1. **Install Flox**: https://flox.dev/docs/install-flox/
 2. **Pick a demo** and follow its README
 3. **Run `flox activate`** — that's it
