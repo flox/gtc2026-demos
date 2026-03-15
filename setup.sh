@@ -23,19 +23,8 @@ fi
 
 echo ""
 
-# Determine repo root: if running from within the repo, use it; otherwise clone
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -d "$SCRIPT_DIR/cuda-cpp-cmake" ] && [ -d "$SCRIPT_DIR/multi-gpu-workflow" ]; then
-    REPO_DIR="$SCRIPT_DIR"
-    echo "$LOG_PREFIX Running inside existing clone: $REPO_DIR"
-else
-    echo "$LOG_PREFIX Not inside repo, cloning..."
-    git clone https://github.com/flox/gtc2026-demos.git
-    REPO_DIR="$(pwd)/gtc2026-demos"
-    echo "$LOG_PREFIX Cloned to: $REPO_DIR"
-fi
-
-echo ""
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo "$LOG_PREFIX Repo directory: $REPO_DIR"
 
 # Pre-activate each environment to pull dependencies, then clean up caches
 for d in cuda-cpp-cmake multi-gpu-workflow; do

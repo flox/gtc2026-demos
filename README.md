@@ -74,10 +74,6 @@ The script will:
   dependencies ahead of time
 - Clean up temporary caches
 
-It auto-detects whether it's running inside a clone of this
-repo (e.g. on Brev) or standalone. If run standalone it will
-clone the repo first.
-
 ### Manual Setup
 
 1. **Install Flox**: https://flox.dev/docs/install-flox/
