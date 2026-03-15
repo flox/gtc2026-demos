@@ -12,14 +12,11 @@ uv.pkg-path = "uv"
 
 pciutils.pkg-path = "pciutils"
 
-# Switch CUDA version by changing the version line:
-#   "cuda-merged-12.8" or "cuda-merged-12.4"
-cudatoolkit.pkg-path = "flox-cuda/cudaPackages_12.cudatoolkit"
-cudatoolkit.version = "cuda-merged-12.8"
-cudatoolkit.systems = ["x86_64-linux"]
-cudatoolkit.priority = 5
-gcc-unwrapped.pkg-path = "gcc-unwrapped"
-gcc-unwrapped.systems = ["x86_64-linux"]
+# Only nvcc is needed — PyTorch CUDA wheels bundle their own runtime libs
+# (CUBLAS, cuDNN, etc.).  Installing the full cudatoolkit puts a second copy
+# of CUBLAS on LD_LIBRARY_PATH, which causes version-mismatch errors.
+cuda_nvcc.pkg-path = "flox-cuda/cudaPackages.cuda_nvcc"
+cuda_nvcc.systems = ["x86_64-linux"]
 
 # --- Hook --------------------------------------------------------------------
 # on-activate runs in bash during `flox activate`.  Three phases:
