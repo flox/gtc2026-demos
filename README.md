@@ -76,18 +76,25 @@ The script will:
 
 ### Manual Setup
 
-1. **Install Flox**: https://flox.dev/docs/install-flox/
-2. **Pick a demo** and follow its README
-3. **Run `flox activate`** — that's it
+1. **Pick a demo** and follow its README
+2. **Run `flox activate`** — that's it
 
 Each demo directory contains a `.flox/` environment. Clone the
 repo, `cd` into a demo, and `flox activate`. The manifest and
 hooks handle the rest.
 
+## Utility Scripts
+
+| Script | Description |
+|--------|-------------|
+| `setup.sh` | Installs Flox (if needed) and pre-activates demo environments to warm the cache |
+| `versions.sh` | Shows installed tool versions |
+| `flox-versions.sh` | Side-by-side comparison of host vs Flox environment versions |
+| `cold-start.sh` | Removes caches and run state, runs `flox gc` to simulate a cold start |
+| `demo-split.sh` | Launches a tmux session with two panes, each in a different demo environment |
+
 ## Requirements
 
-- **Flox** installed
-  ([install guide](https://flox.dev/docs/install-flox/))
 - **NVIDIA driver** installed on the host (for GPU demos)
 - **No other CUDA installation needed** — Flox provides the
   toolkit, compiler, and libraries
