@@ -10,13 +10,14 @@ echo ""
 if command -v flox &>/dev/null; then
     echo "$LOG_PREFIX Flox already installed: $(flox --version)"
 else
+    TMPDIR="$(mktemp -d)"
     echo "$LOG_PREFIX Flox not found, installing..."
-    echo "$LOG_PREFIX Downloading .deb package to $HOME..."
-    wget -P ~ https://downloads.flox.dev/by-env/nightly/deb/flox-1.10.0-35-gfed448a4.x86_64-linux.deb
+    echo "$LOG_PREFIX Downloading .deb package to $TMPDIR..."
+    wget -P "$TMPDIR" https://downloads.flox.dev/by-env/nightly/deb/flox-1.10.0-35-gfed448a4.x86_64-linux.deb
     echo "$LOG_PREFIX Installing package..."
-    sudo apt install -y ~/flox-1.10.0-35-gfed448a4.x86_64-linux.deb
-    echo "$LOG_PREFIX Cleaning up .deb file..."
-    rm -f ~/flox-1.10.0-35-gfed448a4.x86_64-linux.deb
+    sudo apt install -y "$TMPDIR/flox-1.10.0-35-gfed448a4.x86_64-linux.deb"
+    echo "$LOG_PREFIX Cleaning up temp directory..."
+    rm -rf "$TMPDIR"
     echo "$LOG_PREFIX Installed: $(flox --version)"
 fi
 
